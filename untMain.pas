@@ -34,13 +34,13 @@ var
 begin
   inherited;
 
-  dlgOpen.Filter := 'Arquivos JPG|*.jpg|Arquivos JPEG|.jpge|Arquivos Bitmap|*.bmp';
+  dlgOpen.Filter := 'Files JPG|*.jpg|Files JPEG|.jpge';
   if dlgOpen.Execute then
   begin
     FrmImageCut := TFrmImageCut.Create(Self);
     try
-      FrmImageCut.ImageWidth   := 0; //500;
-      FrmImageCut.ImageHeight  := 0; //250;
+      FrmImageCut.ImageWidth   := 500; //Pass 0 to not resize
+      FrmImageCut.ImageHeight  := 500; //Pass 0 to not resize
       FrmImageCut.OriginalPath := dlgOpen.FileName;
       if FrmImageCut.ShowModal = mrOk then
       begin
