@@ -175,6 +175,9 @@ var
 begin
   if ssLeft in Shift then
   begin
+    if (not Selecting) then
+      Exit;
+
     TempBitmap := TBitmap.Create;
     JpegImage  := TJPEGImage.Create;
     try
