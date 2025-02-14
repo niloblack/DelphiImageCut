@@ -39,8 +39,11 @@ begin
   begin
     FrmImageCut := TFrmImageCut.Create(Self);
     try
-      FrmImageCut.ImageWidth   := 500; //Pass 0 to not resize
-      FrmImageCut.ImageHeight  := 500; //Pass 0 to not resize
+      FrmImageCut.FixedSelectionSize := True;
+      FrmImageCut.SizeFixedX := 300;
+      FrmImageCut.SizeFixedY := 150;
+      FrmImageCut.ImageWidthResize   := 500; //Pass 0 to not resize
+      FrmImageCut.ImageHeightResize  := 250; //Pass 0 to not resize
       FrmImageCut.OriginalPath := dlgOpen.FileName;
       if FrmImageCut.ShowModal = mrOk then
       begin

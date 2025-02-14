@@ -28,8 +28,8 @@ type
 
   private
     { Private declarations }
-    FImageHeight: Integer;
-    FImageWidth: Integer;
+    FImageHeightResize: Integer;
+    FImageWidthResize: Integer;
     FOriginalPath: String;
     FStream: TMemoryStream;
 
@@ -39,22 +39,30 @@ type
     EndX:   Integer;
     EndY:   Integer;
     Selecting: Boolean;
+    FFixedSelectionSize: Boolean;
 
     ImgBackup: TImage;
     ImgCropped: TImage;
+    FSizeFixedX: Integer;
+    FSizeFixedY: Integer;
 
     procedure LoadImage();
-    procedure ResizeImage(Origem: String; Destino: String; Largura,
-      Altura: Integer);
+    procedure ResizeImage(AOrigin: String; ADestination: String; AWidth: Integer;
+      AHeight: Integer);
     procedure ImportClipping();
     procedure Translate();
+    procedure CreateFixedFrame(AStartX: Integer; AStartY: Integer;
+      AEndX: Integer; AEndY: Integer);
 
   published
     { Published declarations }
-    property ImageHeight: Integer read FImageHeight write FImageHeight;
-    property ImageWidth: Integer read FImageWidth write FImageWidth;
-    property OriginalPath: String read FOriginalPath write FOriginalPath;
-    property Stream: TMemoryStream read FStream write FStream;
+    property ImageHeightResize: Integer  read FImageHeightResize  write FImageHeightResize;
+    property ImageWidthResize: Integer   read FImageWidthResize   write FImageWidthResize;
+    property OriginalPath: String        read FOriginalPath       write FOriginalPath;
+    property Stream: TMemoryStream       read FStream             write FStream;
+    property FixedSelectionSize: Boolean read FFixedSelectionSize write FFixedSelectionSize;
+    property SizeFixedX: Integer         read FSizeFixedX         write FSizeFixedX;
+    property SizeFixedY: Integer         read FSizeFixedY         write FSizeFixedY;
 
   public
     { Public declarations }
@@ -79,26 +87,29 @@ end;
 
 procedure TFrmImageCut.FormCreate(Sender: TObject);
 begin
-  Self.ImageHeight  := 0;
-  Self.ImageWidth   := 0;
-  Self.OriginalPath := '';
-  Self.Stream := TMemoryStream.Create;
+  Self.FixedSelectionSize := False;
+  Self.SizeFixedX         := 300;
+  Self.SizeFixedY         := 150;
+  Self.ImageHeightResize  := 0;
+  Self.ImageWidthResize   := 0;
+  Self.OriginalPath       := '';
+  Self.Stream             := TMemoryStream.Create;
 
   PathBackupResized := EmptyStr;
   Selecting := False;
-  StartX := 0;
-  StartY := 0;
-  EndX   := 0;
-  EndY   := 0;
+  StartX    := 0;
+  StartY    := 0;
+  EndX      := 0;
+  EndY      := 0;
 
-  ImgBackup := TImage.Create(Self);
+  ImgBackup        := TImage.Create(Self);
   ImgBackup.Height := ImgOriginal.Height;
   ImgBackup.Width  := ImgOriginal.Width;
   ImgBackup.Top    := ImgOriginal.Top;
   ImgBackup.Left   := Self.Width + 10;
   ImgBackup.Transparent := True;
 
-  ImgCropped := TImage.Create(Self);
+  ImgCropped        := TImage.Create(Self);
   ImgCropped.Height := 250;
   ImgCropped.Width  := 500;
   ImgCropped.Top    := ImgOriginal.Top;
@@ -147,6 +158,11 @@ procedure TFrmImageCut.FormShow(Sender: TObject);
 begin
   try
     LoadImage();
+
+    if Self.FixedSelectionSize then
+    begin
+      CreateFixedFrame(10, 10, Self.SizeFixedX, Self.SizeFixedY);
+    end;
   except
     on E:Exception do
     begin
@@ -164,6 +180,13 @@ begin
     StartX := X;
     StartY := Y;
     Selecting := True;
+
+    if (Self.FixedSelectionSize) then
+    begin
+      EndX := StartX + Self.SizeFixedX;
+      EndY := StartY + Self.SizeFixedY;
+      CreateFixedFrame(StartX, StartY, EndX, EndY);
+    end;
   end;
 end;
 
@@ -175,7 +198,7 @@ var
 begin
   if ssLeft in Shift then
   begin
-    if (not Selecting) then
+    if (not Selecting) Or (Self.FixedSelectionSize) then
       Exit;
 
     TempBitmap := TBitmap.Create;
@@ -197,12 +220,36 @@ begin
   end;
 end;
 
+procedure TFrmImageCut.CreateFixedFrame(AStartX: Integer; AStartY: Integer;
+  AEndX: Integer; AEndY: Integer);
+var
+  TempBitmap: TBitmap;
+begin
+  TempBitmap := TBitmap.Create;
+  try
+    TempBitmap.Assign(ImgBackup.Picture.Graphic);
+
+    TempBitmap.Canvas.Pen.Color := clRed;
+    TempBitmap.Canvas.Pen.Width := 2;
+    TempBitmap.Canvas.Brush.Style := bsClear;
+    TempBitmap.Canvas.Rectangle(AStartX, AStartY, AEndX, AEndY);
+
+    ImgOriginal.Picture.Assign(TempBitmap);
+  finally
+    TempBitmap.Free;
+  end;
+end;
+
 procedure TFrmImageCut.ImgOriginalMouseUp(Sender: TObject;
   Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
   Selecting := False;
-  EndX := X;
-  EndY := Y;
+
+  if (not Self.FixedSelectionSize) then
+  begin
+    EndX := X;
+    EndY := Y;
+  end;
 end;
 
 procedure TFrmImageCut.BtnImportClick(Sender: TObject);
@@ -250,7 +297,7 @@ begin
     end
 end;
 
-procedure TFrmImageCut.ResizeImage(Origem: String; Destino: String; Largura: Integer; Altura: Integer);
+procedure TFrmImageCut.ResizeImage(AOrigin: String; ADestination: String; AWidth: Integer; AHeight: Integer);
 var
   ImgOrigem, ImgRedimensionada: TBitmap;
   JpgOrigem: TJPEGImage;
@@ -261,13 +308,13 @@ begin
     try
       ImgRedimensionada := TBitmap.Create;
       try
-        JpgOrigem.LoadFromFile(Origem);
+        JpgOrigem.LoadFromFile(AOrigin);
         ImgOrigem.Assign(JpgOrigem);
 
-        ImgRedimensionada.SetSize(Largura, Altura);
-        ImgRedimensionada.Canvas.StretchDraw(Rect(0, 0, Largura, Altura), ImgOrigem);
+        ImgRedimensionada.SetSize(AWidth, AHeight);
+        ImgRedimensionada.Canvas.StretchDraw(Rect(0, 0, AWidth, AHeight), ImgOrigem);
 
-        ImgRedimensionada.SaveToFile(Destino);
+        ImgRedimensionada.SaveToFile(ADestination);
       finally
         ImgRedimensionada.Free;
       end;
@@ -293,11 +340,11 @@ begin
       ImgBackup.Picture.Bitmap.Canvas,
       Rect(StartX, StartY, EndX, EndY));
 
-    if (ImageWidth > 0) And (ImageHeight > 0) then
+    if (ImageWidthResize > 0) And (ImageHeightResize > 0) then
     begin
-      ResizedBitmap.Width := ImageWidth;
-      ResizedBitmap.Height := ImageHeight;
-      DestRect := Rect(0, 0, ImageWidth, ImageHeight);
+      ResizedBitmap.Width := ImageWidthResize;
+      ResizedBitmap.Height := ImageHeightResize;
+      DestRect := Rect(0, 0, ImageWidthResize, ImageHeightResize);
       ResizedBitmap.Canvas.StretchDraw(DestRect, Bitmap);
 
       ImgCropped.Picture.Assign(ResizedBitmap);
